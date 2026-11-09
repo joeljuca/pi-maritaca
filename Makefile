@@ -9,8 +9,8 @@ git_current_branch ?= $$(git branch | grep '^*' | cut '-d*' -f2)
 # Add Git remotes
 .PHONY: git.add-remotes
 git.add-remotes:
-	git remote add github   git@github.com:joeljuca/pi-maritaca.git         || true
-	git remote add codeberg ssh://git@codeberg.org/joeljuca/pi-maritaca.git || true
+	git remote add github.com   git@github.com:joeljuca/pi-maritaca.git         || true
+	git remote add codeberg.org ssh://git@codeberg.org/joeljuca/pi-maritaca.git || true
 
 	for r in $$(git remote); do \
 		; git fetch $$r \
