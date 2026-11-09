@@ -1,10 +1,10 @@
 # Contributing to pi-maritaca
 
-Thank you for your interest in contributing! This document provides guidelines and instructions for contributing to this project.
+This doc provides instructions for contributing to this project.
 
 ## Code of Conduct
 
-Please be respectful and constructive in all interactions.
+See: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## How to Contribute
 
