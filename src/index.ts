@@ -307,6 +307,19 @@ export function createMaritacaExtension(config?: MaritacaConfig) {
             reasoning,
             ...(reasoning ? { thinkingLevelMap: THINKING_LEVEL_MAP } : {}),
             input: input ?? TEXT_ONLY_INPUT,
+            // Costs are intentionally all-zero — NOT a bug to be fixed.
+            //
+            // Maritaca's GET /api/models payload exposes no pricing fields for
+            // any model (verified shape: id, name, created, owned_by,
+            // context_length, top_provider{context_length,
+            // max_completion_tokens}). There is nothing on the wire to read;
+            // pi requires a cost shape on every model regardless, so zeros are
+            // the honest placeholder rather than invented numbers.
+            //
+            // Do not "fix" this by guessing per-model prices. If Maritaca ever
+            // adds pricing to /api/models (or exposes a priced endpoint),
+            // surface real values here and drop the zeros. Until then, treat
+            // this as settled.
             cost: {
               input: 0,
               output: 0,
