@@ -156,6 +156,39 @@ describe("createMaritacaExtension", () => {
       process.env.MARITACA_API_FORMAT = "bogus-format";
       expect(() => createMaritacaExtension()).toThrow(/Invalid MARITACA_API_FORMAT/);
     });
+
+    it("throws on empty apiFormat in config (never silently falls through)", () => {
+      // @ts-expect-error – empty string is not a valid ApiFormat at compile time
+      expect(() => createMaritacaExtension({ apiFormat: "" })).toThrow(/Invalid apiFormat/);
+    });
+
+    it("throws on empty apiBaseUrl in config (would otherwise propagate \"\")", () => {
+      expect(() => createMaritacaExtension({ apiBaseUrl: "" })).toThrow(/Invalid apiBaseUrl/);
+    });
+
+    it("throws on whitespace-only apiBaseUrl in config", () => {
+      expect(() => createMaritacaExtension({ apiBaseUrl: "   " })).toThrow(/Invalid apiBaseUrl/);
+    });
+
+    it("throws on empty MARITACA_API_FORMAT env var (no silent fallback to default)", () => {
+      process.env.MARITACA_API_FORMAT = "";
+      expect(() => createMaritacaExtension()).toThrow(/Invalid MARITACA_API_FORMAT/);
+    });
+
+    it("throws on empty MARITACA_API_BASE_URL env var (refuses to build a provider with \"\")", () => {
+      process.env.MARITACA_API_BASE_URL = "";
+      expect(() => createMaritacaExtension()).toThrow(/Invalid MARITACA_API_BASE_URL/);
+    });
+
+    it("throws on whitespace-only MARITACA_API_BASE_URL env var", () => {
+      process.env.MARITACA_API_BASE_URL = "\t\n  ";
+      expect(() => createMaritacaExtension()).toThrow(/Invalid MARITACA_API_BASE_URL/);
+    });
+
+    it("throws on untrimmed env value with trailing newline (caller must supply well-formed strings)", () => {
+      process.env.MARITACA_API_FORMAT = "openai-completions\n";
+      expect(() => createMaritacaExtension()).toThrow(/Invalid MARITACA_API_FORMAT/);
+    });
   });
 });
 

@@ -156,32 +156,57 @@ export const MODEL_TOOLS: Record<string, BuiltInTool[]> = {
   "S5-free": [],
 };
 
-function resolveApiFormat(apiFormat?: ApiFormat): ApiFormat {
-  // Config takes precedence
-  if (apiFormat) {
-    if (!API_FORMATS.includes(apiFormat)) {
-      throw new Error(
-        `Invalid apiFormat: "${apiFormat}". Must be one of: ${API_FORMATS.join(", ")}`,
-      );
+/**
+ * Specification for a single configurable string field resolved by
+ * {@link resolveField}. One instance per field, kept co-located with the call
+ * site so all sources of truth for that field live together.
+ */
+interface FieldSpec {
+  /** Human label used when the offending value came from the config object. */
+  configLabel: string;
+  /** Env var name; also the label used when the value came from the env. */
+  envVar: string;
+  /** Fallback used only when neither source provided a value (assumed valid). */
+  defaultValue: string;
+  /** Returns true iff `raw` is acceptable. False triggers a throw. */
+  isValid: (raw: string) => boolean;
+  /** Appended to every error message to tell the user how to fix the value. */
+  hint: string;
+}
+
+/**
+ * Resolve a string-valued config field with precedence:
+ * config param > environment variable > default.
+ *
+ * A field counts as "provided" when its value is `!== undefined`. An empty
+ * string therefore counts as provided — it gets validated and rejected rather
+ * than silently falling through to the next source. This keeps the extension
+ * from running half-configured: a malformed value MUST fail loudly, never be
+ * treated as unset. The same rule applies to both the config object and the
+ * environment variable, so neither source can silently override the other's
+ * intent. All fields share one resolver to prevent semantic drift between
+ * them (e.g. one field treating "" as unset while another treats it as
+ * invalid).
+ *
+ * @throws Error when a provided value fails validation. The message names the
+ *         actual source (`<configLabel>` for config, `<envVar>` for env) so
+ *         the user can locate and fix the bad value immediately.
+ */
+function resolveField(configVal: string | undefined, spec: FieldSpec): string {
+  if (configVal !== undefined) {
+    if (!spec.isValid(configVal)) {
+      throw new Error(`Invalid ${spec.configLabel}: "${configVal}". ${spec.hint}`);
     }
-
-    return apiFormat;
+    return configVal;
   }
-
-  // Fall back to env var
-  const envValue = process.env.MARITACA_API_FORMAT;
-
-  if (envValue) {
-    if (!API_FORMATS.includes(envValue as ApiFormat)) {
-      throw new Error(
-        `Invalid MARITACA_API_FORMAT: "${envValue}". Must be one of: ${API_FORMATS.join(", ")}`,
-      );
+  const envRaw = process.env[spec.envVar];
+  if (envRaw !== undefined) {
+    if (!spec.isValid(envRaw)) {
+      throw new Error(`Invalid ${spec.envVar}: "${envRaw}". ${spec.hint}`);
     }
-    return envValue as ApiFormat;
+    return envRaw;
   }
-
-  // Fall back to default
-  return DEFAULT_CONFIG.apiFormat;
+  return spec.defaultValue;
 }
 
 /**
@@ -209,9 +234,25 @@ export function createMaritacaExtension(config?: MaritacaConfig) {
   // Precedence: config param > env var > default. Do NOT merge defaults into
   // `config` first — that would make every field "defined" and hide the env
   // fallbacks below.
-  const apiFormat = resolveApiFormat(config?.apiFormat);
-  const apiBaseUrl =
-    config?.apiBaseUrl ?? process.env.MARITACA_API_BASE_URL ?? DEFAULT_CONFIG.apiBaseUrl;
+  const apiFormat = resolveField(config?.apiFormat, {
+    configLabel: "apiFormat",
+    envVar: "MARITACA_API_FORMAT",
+    defaultValue: DEFAULT_CONFIG.apiFormat,
+    isValid: (raw) => API_FORMATS.includes(raw as ApiFormat),
+    hint: `Must be one of: ${API_FORMATS.join(", ")}.`,
+  }) as ApiFormat;
+  const apiBaseUrl = resolveField(config?.apiBaseUrl, {
+    configLabel: "apiBaseUrl",
+    envVar: "MARITACA_API_BASE_URL",
+    defaultValue: DEFAULT_CONFIG.apiBaseUrl,
+    // Deliberately do NOT parse the URL further (scheme/host/etc.): Maritaca
+    // may front the API with proxies, self-hosted endpoints, or unusual
+    // schemes, and a strict parse would reject legitimate setups. Empty or
+    // whitespace-only values are unambiguously broken, so those alone are
+    // refused.
+    isValid: (raw) => raw.trim().length > 0,
+    hint: "Must be a non-empty URL string.",
+  });
   const apiKey = API_KEY_TEMPLATE;
 
   debug("config: apiFormat=%s apiBaseUrl=%s", apiFormat, apiBaseUrl);
