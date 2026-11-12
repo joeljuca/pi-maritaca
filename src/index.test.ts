@@ -294,7 +294,6 @@ describe("refreshModels", () => {
         id: "sabia-4",
         name: "sabia-4",
         reasoning: false,
-        input: ["text"],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 128_000,
         maxTokens: 32_768,
